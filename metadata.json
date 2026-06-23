@@ -1,0 +1,8 @@
+{
+  "name": "Soolomon R2",
+  "description": "Optimize mixed-case palletizing with stability scoring, interlocking patterns, and CG calculations in a 3D graphical simulation tool.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
