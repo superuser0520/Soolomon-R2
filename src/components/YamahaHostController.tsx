@@ -22,6 +22,20 @@ interface YamahaHostControllerProps {
   rcxToolOffsetZ?: number;
   rcxPickAlignmentMode?: "corner" | "center";
   rcxScaleDown?: number;
+
+  rcxPickSignX?: number;
+  rcxPickSignY?: number;
+  rcxPickSignZ?: number;
+  rcxPlaceSignX?: number;
+  rcxPlaceSignY?: number;
+  rcxPlaceSignZ?: number;
+  rcxSafeZTravelEnabled?: boolean;
+
+  rcxToolOffsetX?: number;
+  rcxToolOffsetY?: number;
+
+  isYamahaConnected: boolean;
+  setIsYamahaConnected: (v: boolean) => void;
 }
 
 export default function YamahaHostController({ 
@@ -40,13 +54,23 @@ export default function YamahaHostController({
   rcxPalletOriginR,
   rcxToolOffsetZ,
   rcxPickAlignmentMode,
-  rcxScaleDown
+  rcxScaleDown,
+  rcxPickSignX = -1,
+  rcxPickSignY = 1,
+  rcxPickSignZ = -1,
+  rcxPlaceSignX = -1,
+  rcxPlaceSignY = -1,
+  rcxPlaceSignZ = -1,
+  rcxSafeZTravelEnabled = true,
+  rcxToolOffsetX = 0,
+  rcxToolOffsetY = 0,
+  isYamahaConnected,
+  setIsYamahaConnected
 }: YamahaHostControllerProps) {
-  const [robotIp, setRobotIp] = useState("192.168.0.2");
-  const [robotPort, setRobotPort] = useState("23");
-  const [pollIntervalMs, setPollIntervalMs] = useState("1000");
-  const [robotNumber, setRobotNumber] = useState("1");
-  const [isConnected, setIsConnected] = useState(false);
+  const [robotIp, setRobotIp] = useState(() => localStorage.getItem("yamaha_robotIp") || "192.168.0.2");
+  const [robotPort, setRobotPort] = useState(() => localStorage.getItem("yamaha_robotPort") || "23");
+  const [pollIntervalMs, setPollIntervalMs] = useState(() => localStorage.getItem("yamaha_pollIntervalMs") || "1000");
+  const [robotNumber, setRobotNumber] = useState(() => localStorage.getItem("yamaha_robotNumber") || "1");
   
   // Status states
   const [modeText, setModeText] = useState("Unknown");
@@ -74,7 +98,7 @@ export default function YamahaHostController({
     try {
       const res = await fetch("/api/yamaha/status");
       const json = await res.json();
-      setIsConnected(json.isConnected);
+      setIsYamahaConnected(json.isConnected);
       setLogs(json.logs || []);
     } catch (e) {}
   };
@@ -102,13 +126,13 @@ export default function YamahaHostController({
   };
 
   useEffect(() => {
-    if (isConnected) {
+    if (isYamahaConnected) {
       startPolling();
     } else {
       stopPolling();
     }
     return () => stopPolling();
-  }, [isConnected, pollIntervalMs, robotNumber]);
+  }, [isYamahaConnected, pollIntervalMs, robotNumber]);
 
   const connect = async () => {
     await fetch("/api/yamaha/connect", {
@@ -234,29 +258,29 @@ export default function YamahaHostController({
         <div className="bg-[#121212] border border-[#2A2A2E] rounded-xl p-4">
           <div className="flex items-center justify-between mb-4">
              <h3 className="text-white font-semibold flex items-center gap-2"><Activity className="w-4 h-4 text-teal-400"/> Connection Settings</h3>
-             <span className={`px-2 py-0.5 rounded text-xs font-bold ${isConnected ? "bg-teal-500/20 text-teal-400" : "bg-slate-800 text-slate-500"}`}>
-               {isConnected ? "App connected to robot" : "Not connected"}
+             <span className={`px-2 py-0.5 rounded text-xs font-bold ${isYamahaConnected ? "bg-teal-500/20 text-teal-400" : "bg-slate-800 text-slate-500"}`}>
+               {isYamahaConnected ? "App connected to robot" : "Not connected"}
              </span>
           </div>
           <div className="grid grid-cols-2 gap-3 mb-4">
              <div>
                <label className="block text-xs text-slate-500 mb-1">Controller IP</label>
-               <input disabled={isConnected} value={robotIp} onChange={(e) => setRobotIp(e.target.value)} type="text" className="w-full bg-[#1A1A1D] border border-slate-700/50 rounded px-2 py-1 text-white" />
+               <input disabled={isYamahaConnected} value={robotIp} onChange={(e) => { const v = e.target.value; setRobotIp(v); localStorage.setItem("yamaha_robotIp", v); }} type="text" className="w-full bg-[#1A1A1D] border border-slate-700/50 rounded px-2 py-1 text-white font-mono text-xs" />
              </div>
              <div>
                <label className="block text-xs text-slate-500 mb-1">TCP Port</label>
-               <input disabled={isConnected} value={robotPort} onChange={(e) => setRobotPort(e.target.value)} type="text" className="w-full bg-[#1A1A1D] border border-slate-700/50 rounded px-2 py-1 text-white" />
+               <input disabled={isYamahaConnected} value={robotPort} onChange={(e) => { const v = e.target.value; setRobotPort(v); localStorage.setItem("yamaha_robotPort", v); }} type="text" className="w-full bg-[#1A1A1D] border border-slate-700/50 rounded px-2 py-1 text-white font-mono text-xs" />
              </div>
              <div>
                <label className="block text-xs text-slate-500 mb-1">Robot Number</label>
-               <input disabled={isConnected} value={robotNumber} onChange={(e) => setRobotNumber(e.target.value)} type="number" min="1" max="4" className="w-full bg-[#1A1A1D] border border-slate-700/50 rounded px-2 py-1 text-white" />
+               <input disabled={isYamahaConnected} value={robotNumber} onChange={(e) => { const v = e.target.value; setRobotNumber(v); localStorage.setItem("yamaha_robotNumber", v); }} type="number" min="1" max="4" className="w-full bg-[#1A1A1D] border border-slate-700/50 rounded px-2 py-1 text-white font-mono text-xs" />
              </div>
              <div>
                <label className="block text-xs text-slate-500 mb-1">Poll Interval (ms)</label>
-               <input value={pollIntervalMs} onChange={(e) => setPollIntervalMs(e.target.value)} type="number" min="100" className="w-full bg-[#1A1A1D] border border-slate-700/50 rounded px-2 py-1 text-white" />
+               <input value={pollIntervalMs} onChange={(e) => { const v = e.target.value; setPollIntervalMs(v); localStorage.setItem("yamaha_pollIntervalMs", v); }} type="number" min="100" className="w-full bg-[#1A1A1D] border border-slate-700/50 rounded px-2 py-1 text-white font-mono text-xs" />
              </div>
           </div>
-          {isConnected ? (
+          {isYamahaConnected ? (
              <button onClick={disconnect} className="w-full bg-red-600/20 hover:bg-red-600/30 text-red-500 border border-red-600/30 font-semibold py-1.5 rounded transition">Disconnect Controller</button>
           ) : (
              <button onClick={connect} className="w-full bg-teal-600 hover:bg-teal-500 text-white font-semibold py-1.5 rounded transition shadow-lg shadow-teal-900/50">Connect to RCX340</button>
@@ -277,7 +301,7 @@ export default function YamahaHostController({
         </div>
       </div>
 
-      {isConnected && (
+      {isYamahaConnected && (
          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             
             {/* Safety Commands */}
@@ -406,18 +430,28 @@ export default function YamahaHostController({
                         const sx = rcxScaleDown || 1.0;
 
                         // Pick Coordinate
-                        const px = Number(((rcxPickOriginX || 0) + pickX_offset * sx).toFixed(1));
-                        const py = Number(((rcxPickOriginY || 0) + pickY_offset * sx).toFixed(1));
-                        const pz = Number(((rcxPickOriginZ || 0) + (bx.h * sx) + (rcxToolOffsetZ || 0)).toFixed(1));
+                        // SCARA TCP pick rotation offset
+                        const thetaPick = ((rcxPickOriginR || 0) * Math.PI) / 180;
+                        const tcpPickX = (rcxToolOffsetX || 0) * Math.cos(thetaPick) - (rcxToolOffsetY || 0) * Math.sin(thetaPick);
+                        const tcpPickY = (rcxToolOffsetX || 0) * Math.sin(thetaPick) + (rcxToolOffsetY || 0) * Math.cos(thetaPick);
+
+                        const px = Number(((rcxPickOriginX || 0) + (rcxPickSignX * pickX_offset * sx) - (tcpPickX * sx)).toFixed(1));
+                        const py = Number(((rcxPickOriginY || 0) + (rcxPickSignY * pickY_offset * sx) - (tcpPickY * sx)).toFixed(1));
+                        const pz = Number(((rcxPickOriginZ || 0) + (rcxPickSignZ * bx.h * sx) - (rcxToolOffsetZ || 0)).toFixed(1));
                         const pr = Number(((rcxPickOriginR || 0)).toFixed(1));
 
-                        // Place Coordinate
-                        const dx = Number(((rcxPalletOriginX || 0) + (bx.x + bx.l / 2) * sx).toFixed(1));
-                        const dy = Number(((rcxPalletOriginY || 0) + (bx.y + bx.w / 2) * sx).toFixed(1));
-                        const dz = Number(((rcxPalletOriginZ || 0) + (bx.z + bx.h) * sx + (rcxToolOffsetZ || 0)).toFixed(1));
-                        
                         const rotDeg = carton ? (bx.h === carton.height ? (bx.l === carton.length ? 0 : 90) : (bx.h === carton.width ? (bx.l === carton.length ? 0 : 90) : (bx.h === carton.length ? (bx.l === carton.width ? 0 : 90) : 0))) : 0;
                         let dr = Number(((rcxPalletOriginR || 0) + rotDeg).toFixed(1));
+
+                        // SCARA TCP place rotation offset
+                        const thetaPlace = (dr * Math.PI) / 180;
+                        const tcpPlaceX = (rcxToolOffsetX || 0) * Math.cos(thetaPlace) - (rcxToolOffsetY || 0) * Math.sin(thetaPlace);
+                        const tcpPlaceY = (rcxToolOffsetX || 0) * Math.sin(thetaPlace) + (rcxToolOffsetY || 0) * Math.cos(thetaPlace);
+
+                        // Place Coordinate
+                        const dx = Number(((rcxPalletOriginX || 0) + (rcxPlaceSignX * (bx.x + bx.l / 2) * sx) - (tcpPlaceX * sx)).toFixed(1));
+                        const dy = Number(((rcxPalletOriginY || 0) + (rcxPlaceSignY * (bx.y + bx.w / 2) * sx) - (tcpPlaceY * sx)).toFixed(1));
+                        const dz = Number(((rcxPalletOriginZ || 0) + (rcxPlaceSignZ * (bx.z + bx.h) * sx) - (rcxToolOffsetZ || 0)).toFixed(1));
 
                         const selected = selectedYamahaStepIndex === i;
 
@@ -428,14 +462,29 @@ export default function YamahaHostController({
                                  <td className="p-2 text-slate-500">{i+1}</td>
                                  <td className="p-2 text-amber-500 font-bold flex items-center gap-1.5"><PackageOpen className="w-3.5 h-3.5"/> Pick</td>
                                  <td className="p-2 text-slate-300">{carton?.name || "Unknown"}</td>
-                                 <td className="p-2 text-slate-400">{px}, {py}, {pz}, {pr}</td>
+                                 <td className="p-2 text-slate-400 font-mono text-[11px]">{px}, {py}, {pz}, {pr}</td>
                                  <td className="p-2 text-right">
-                                    <button 
-                                      onClick={(e) => { e.stopPropagation(); confirmAndSend("Move to Pick Coordinate?", `@MOVE[${robotNumber}] P, ${px} ${py} ${pz} ${pr} 0 0, S=20`); }} 
-                                      className="bg-amber-600/20 hover:bg-amber-600/30 text-amber-500 px-2 py-1 rounded text-[10px] border border-amber-600/40"
-                                    >
-                                       Go To Pick
-                                    </button>
+                                    <div className="flex gap-1.5 justify-end">
+                                       <button 
+                                         onClick={(e) => { 
+                                           e.stopPropagation(); 
+                                           if (rcxSafeZTravelEnabled) {
+                                              confirmAndSend("Move Pick Sequence?", `@MOVE[${robotNumber}] P, WHR(1) WHR(2) 20.000 WHR(4) 0.00 0.00, S=20\r\n@MOVE[${robotNumber}] P, ${px} ${py} 20.000 ${pr} 0.000 0.000, S=20`);
+                                           } else {
+                                              confirmAndSend("Safe Move Pick (XYR at Top Z)?", `@MOVE[${robotNumber}] P, ${px} ${py} 20.000 ${pr} 0.000 0.000, S=20`); 
+                                           }
+                                         }} 
+                                         className="bg-amber-600/10 hover:bg-amber-600/20 text-amber-500 px-1.5 py-0.5 rounded text-[9.5px] border border-amber-600/30 font-mono"
+                                       >
+                                          1. Pick Align XYR
+                                       </button>
+                                       <button 
+                                         onClick={(e) => { e.stopPropagation(); confirmAndSend("Plunge Z down to Pick base coordinate?", `@MOVE[${robotNumber}] P, ${px} ${py} ${pz} ${pr} 0.000 0.000, S=15`); }} 
+                                         className="bg-amber-600/25 hover:bg-amber-600/40 text-amber-300 px-1.5 py-0.5 rounded text-[9.5px] border border-amber-500 font-semibold font-mono"
+                                       >
+                                          2. Pick Plunge Z
+                                       </button>
+                                    </div>
                                  </td>
                               </tr>
                               {/* PLACE ROW */}
@@ -443,14 +492,32 @@ export default function YamahaHostController({
                                  <td className="p-2 text-slate-500"></td>
                                  <td className="p-2 text-emerald-400 font-bold flex items-center gap-1.5"><CheckSquare className="w-3.5 h-3.5"/> Place</td>
                                  <td className="p-2 text-slate-300">[{bx.x}, {bx.y}, {bx.z}]</td>
-                                 <td className="p-2 text-slate-400">{dx}, {dy}, {dz}, {dr}</td>
+                                 <td className="p-2 text-slate-400 font-mono text-[11px]">{dx}, {dy}, {dz}, {dr}</td>
                                  <td className="p-2 text-right">
-                                    <button 
-                                      onClick={(e) => { e.stopPropagation(); confirmAndSend("Move to Place Coordinate?", `@MOVE[${robotNumber}] P, ${dx} ${dy} ${dz} ${dr} 0 0, S=20`); }} 
-                                      className="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 px-2 py-1 rounded text-[10px] border border-emerald-600/40"
-                                    >
-                                       Go To Place
-                                    </button>
+                                    <div className="flex gap-1.5 justify-end">
+                                       <button 
+                                         onClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            if (rcxSafeZTravelEnabled) {
+                                               confirmAndSend("Move Place Sequence?", `@MOVE[${robotNumber}] P, WHR(1) WHR(2) 20.000 WHR(4) 0.00 0.00, S=20\r\n@MOVE[${robotNumber}] P, ${dx} ${dy} 20.000 ${dr} 0.000 0.000, S=20`);
+                                            } else {
+                                               confirmAndSend("Safe Move Place (XYR at Top Z)?", `@MOVE[${robotNumber}] P, ${dx} ${dy} 20.000 ${dr} 0.000 0.000, S=20`); 
+                                            }
+                                         }} 
+                                         className="bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 px-1.5 py-0.5 rounded text-[9.5px] border border-emerald-600/30 font-mono"
+                                       >
+                                          3. Place Plunge Z
+                                       </button>
+                                       <button 
+                                         onClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            confirmAndSend("Ascend cleanly to safe height?", `@MOVE[${robotNumber}] P, ${dx} ${dy} 20.000 ${dr} 0.000 0.000, S=20`); 
+                                         }} 
+                                         className="bg-emerald-600/25 hover:bg-emerald-600/40 text-emerald-300 px-1.5 py-0.5 rounded text-[9.5px] border border-emerald-500 font-semibold font-mono"
+                                       >
+                                          4. Back to Safe Height
+                                       </button>
+                                    </div>
                                  </td>
                               </tr>
                            </React.Fragment>
@@ -464,10 +531,9 @@ export default function YamahaHostController({
       )}
 
       {/* Terminal Log Output */}
-      {isConnected && (
-         <div className="bg-[#121212] border border-[#2A2A2E] rounded-xl p-0 overflow-hidden">
-           <div className="bg-[#1A1A1D] px-4 py-2 border-b border-[#2A2A2E] flex justify-between items-center">
-             <div className="text-xs font-semibold text-slate-300 font-mono flex items-center gap-2">
+      <div className="bg-[#121212] border border-[#2A2A2E] rounded-xl p-0 overflow-hidden">
+        <div className="bg-[#1A1A1D] px-4 py-2 border-b border-[#2A2A2E] flex justify-between items-center">
+          <div className="text-xs font-semibold text-slate-300 font-mono flex items-center gap-2">
                <Terminal className="w-3.5 h-3.5 text-slate-400"/>
                Protocol Transmission Logs
              </div>
@@ -485,8 +551,7 @@ export default function YamahaHostController({
               ))}
               {logs.length === 0 && <div className="text-slate-600 italic">No communication logs recorded yet.</div>}
            </div>
-         </div>
-      )}
+        </div>
     </div>
   );
 }

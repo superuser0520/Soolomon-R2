@@ -21,7 +21,7 @@ let receivedCartons: CartonType[] = [];
 let tcpServer: net.Server | null = null;
 let connectedSocket: net.Socket | null = null;
 let hikrobotLogs: string[] = ["System initialized. Hikrobot SC6000 Host TCP server is ready to compile."];
-let hikrobotPort = 8080; // Matches the default Tkinter listening port
+let hikrobotPort = 7920; // Matches the default Tkinter listening port
 let isTcpServerRunning = false;
 
 function logHikrobot(msg: string) {
@@ -457,6 +457,7 @@ class Rcx340Client extends EventEmitter {
 
       this.socket.connect(this.port, this.host, () => {
         this.isConnected = true;
+        this.socket?.setTimeout(0); // Disable idle timeout after successful connect
         this.emit('connected');
         resolve();
       });
@@ -654,11 +655,12 @@ app.post("/api/yamaha/disconnect", (req, res) => {
 });
 
 app.post("/api/yamaha/command", async (req, res) => {
-  if (!activeYamahaClient) {
-    return res.status(400).json({ status: "error", error: "Not connected" });
-  }
   const { cmd, isCtrlC } = req.body;
   logYamaha(isCtrlC ? "^C" : cmd, "tx");
+  if (!activeYamahaClient) {
+    logYamaha("Not connected to robot controller", "error");
+    return res.status(400).json({ status: "error", error: "Not connected" });
+  }
   
   try {
     const response = isCtrlC ? await activeYamahaClient.sendCtrlC() : await activeYamahaClient.sendCommand(cmd);

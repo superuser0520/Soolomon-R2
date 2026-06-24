@@ -31,6 +31,7 @@ import { PalletConfig, CartonType, PlacedBlock, PackingResult } from "./types";
 import { simulateMultiPalletizing } from "./packing-algo";
 import WorkspaceCalibrator from "./components/WorkspaceCalibrator";
 import YamahaHostController from "./components/YamahaHostController";
+import TouchHMI from "./components/TouchHMI";
 
 interface SavedTemplate {
   id: string;
@@ -98,6 +99,7 @@ export default function App() {
   const [simulationResults, setSimulationResults] = useState<PackingResult[]>([]);
   const [activePalletIndex, setActivePalletIndex] = useState<number>(0);
   const [autoCyclePallets, setAutoCyclePallets] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<"palletizer" | "hmi">("palletizer");
 
   useEffect(() => {
     if (!autoCyclePallets || simulationResults.length <= 1) return;
@@ -199,7 +201,7 @@ export default function App() {
   const [dismissedWarnings, setDismissedWarnings] = useState<string[]>([]);
   const [showStabilityMetrics, setShowStabilityMetrics] = useState<boolean>(false);
   const [showBoxStabilityDetails, setShowBoxStabilityDetails] = useState<boolean>(true); // Enabled by default to highlight the new capability
-  const [activePage, setActivePage] = useState<"hmi" | "pallet-settings" | "robot-settings">("hmi");
+  const [activePage, setActivePage] = useState<"hmi" | "pallet-settings" | "robot-settings" | "operator-hmi">("hmi");
   const [showScanSuccess, setShowScanSuccess] = useState<any | null>(null);
   const [showYamahaGuide, setShowYamahaGuide] = useState<boolean>(false);
 
@@ -216,29 +218,51 @@ export default function App() {
   const [activeInputTab, setActiveInputTab] = useState<"manual" | "camera">("manual");
   const [scannerStatus, setScannerStatus] = useState({
     isTcpServerRunning: false,
-    port: 8080,
+    port: 7920,
     isConnected: false,
     clientAddress: null as string | null,
     logs: [] as string[]
   });
-  const [scannerPortInput, setScannerPortInput] = useState<string>("8080");
+  const [scannerPortInput, setScannerPortInput] = useState<string>("7920");
   const [customScannerInput, setCustomScannerInput] = useState<string>("450;350;200");
   const [scannerLoading, setScannerLoading] = useState<boolean>(false);
   const [triggerStatusMsg, setTriggerStatusMsg] = useState<string>("");
 
   // --- YAMAHA RCX 340 ROBOT COORDINATE CONFIGURATION STATES (Robust String representation to prevent typing bugs) ---
-  const [rcxPickOriginXStr, setRcxPickOriginXStr] = useState<string>("850.0");
-  const [rcxPickOriginYStr, setRcxPickOriginYStr] = useState<string>("0.0");
-  const [rcxPickOriginZStr, setRcxPickOriginZStr] = useState<string>("150.0");
-  const [rcxPickOriginRStr, setRcxPickOriginRStr] = useState<string>("0.0");
+  const [rcxPickOriginXStr, setRcxPickOriginXStr] = useState<string>(() => localStorage.getItem("rcxPickOriginXStr") || "850.0");
+  const [rcxPickOriginYStr, setRcxPickOriginYStr] = useState<string>(() => localStorage.getItem("rcxPickOriginYStr") || "0.0");
+  const [rcxPickOriginZStr, setRcxPickOriginZStr] = useState<string>(() => localStorage.getItem("rcxPickOriginZStr") || "150.0");
+  const [rcxPickOriginRStr, setRcxPickOriginRStr] = useState<string>(() => localStorage.getItem("rcxPickOriginRStr") || "0.0");
   
-  const [rcxPalletOriginXStr, setRcxPalletOriginXStr] = useState<string>("500.0");
-  const [rcxPalletOriginYStr, setRcxPalletOriginYStr] = useState<string>("-450.0");
-  const [rcxPalletOriginZStr, setRcxPalletOriginZStr] = useState<string>("100.0");
-  const [rcxPalletOriginRStr, setRcxPalletOriginRStr] = useState<string>("0.0");
+  const [rcxPalletOriginXStr, setRcxPalletOriginXStr] = useState<string>(() => localStorage.getItem("rcxPalletOriginXStr") || "500.0");
+  const [rcxPalletOriginYStr, setRcxPalletOriginYStr] = useState<string>(() => localStorage.getItem("rcxPalletOriginYStr") || "-450.0");
+  const [rcxPalletOriginZStr, setRcxPalletOriginZStr] = useState<string>(() => localStorage.getItem("rcxPalletOriginZStr") || "100.0");
+  const [rcxPalletOriginRStr, setRcxPalletOriginRStr] = useState<string>(() => localStorage.getItem("rcxPalletOriginRStr") || "0.0");
 
-  const [rcxToolOffsetZStr, setRcxToolOffsetZStr] = useState<string>("0.0");
-  const [rcxScaleDownStr, setRcxScaleDownStr] = useState<string>("1.0");
+  const [rcxPickSignX, setRcxPickSignX] = useState<number>(() => parseFloat(localStorage.getItem("rcxPickSignX") || "-1"));
+  const [rcxPickSignY, setRcxPickSignY] = useState<number>(() => parseFloat(localStorage.getItem("rcxPickSignY") || "1"));
+  const [rcxPickSignZ, setRcxPickSignZ] = useState<number>(() => parseFloat(localStorage.getItem("rcxPickSignZ") || "-1"));
+
+  const [rcxPlaceSignX, setRcxPlaceSignX] = useState<number>(() => parseFloat(localStorage.getItem("rcxPlaceSignX") || "-1"));
+  const [rcxPlaceSignY, setRcxPlaceSignY] = useState<number>(() => parseFloat(localStorage.getItem("rcxPlaceSignY") || "-1"));
+  const [rcxPlaceSignZ, setRcxPlaceSignZ] = useState<number>(() => parseFloat(localStorage.getItem("rcxPlaceSignZ") || "-1"));
+
+  const [rcxSafeZTravelEnabled, setRcxSafeZTravelEnabled] = useState<boolean>(() => localStorage.getItem("rcxSafeZTravelEnabled") !== "false");
+
+  const [rcxTravelSpeedStr, setRcxTravelSpeedStr] = useState<string>(() => localStorage.getItem("rcxTravelSpeedStr") || "80");
+  const [rcxPlungeSpeedStr, setRcxPlungeSpeedStr] = useState<string>(() => localStorage.getItem("rcxPlungeSpeedStr") || "20");
+
+  const [rcxToolOffsetZStr, setRcxToolOffsetZStr] = useState<string>(() => localStorage.getItem("rcxToolOffsetZStr") || "0.0");
+  const [rcxToolOffsetXStr, setRcxToolOffsetXStr] = useState<string>(() => localStorage.getItem("rcxToolOffsetXStr") || "0.0");
+  const [rcxToolOffsetYStr, setRcxToolOffsetYStr] = useState<string>(() => localStorage.getItem("rcxToolOffsetYStr") || "0.0");
+  
+  const [rcxEndEffectorLStr, setRcxEndEffectorLStr] = useState<string>(() => localStorage.getItem("rcxEndEffectorLStr") || "80.0");
+  const [rcxEndEffectorWStr, setRcxEndEffectorWStr] = useState<string>(() => localStorage.getItem("rcxEndEffectorWStr") || "80.0");
+  const [rcxEndEffectorHStr, setRcxEndEffectorHStr] = useState<string>(() => localStorage.getItem("rcxEndEffectorHStr") || "150.0");
+
+  const [rcxScaleDownStr, setRcxScaleDownStr] = useState<string>(() => localStorage.getItem("rcxScaleDownStr") || "1.0");
+  const [isYamahaConnected, setIsYamahaConnected] = useState<boolean>(false);
+  const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
 
   // Numeric parsed values for live calculations:
   const rcxPickOriginX = parseFloat(rcxPickOriginXStr) || 0;
@@ -252,9 +276,19 @@ export default function App() {
   const rcxPalletOriginR = parseFloat(rcxPalletOriginRStr) || 0;
 
   const rcxToolOffsetZ = parseFloat(rcxToolOffsetZStr) || 0;
-  const rcxScaleDown = Math.max(0.001, parseFloat(rcxScaleDownStr) || 1.0);
+  const rcxToolOffsetX = parseFloat(rcxToolOffsetXStr) || 0;
+  const rcxToolOffsetY = parseFloat(rcxToolOffsetYStr) || 0;
 
-  const [rcxPickAlignmentMode, setRcxPickAlignmentMode] = useState<"corner" | "center">("corner");
+  const rcxEndEffectorL = parseFloat(rcxEndEffectorLStr) || 80.0;
+  const rcxEndEffectorW = parseFloat(rcxEndEffectorWStr) || 80.0;
+  const rcxEndEffectorH = parseFloat(rcxEndEffectorHStr) || 150.0;
+  const rcxScaleDown = Math.max(0.001, parseFloat(rcxScaleDownStr) || 1.0);
+  const rcxTravelSpeed = Math.max(1, Math.min(100, parseInt(rcxTravelSpeedStr) || 80));
+  const rcxPlungeSpeed = Math.max(1, Math.min(100, parseInt(rcxPlungeSpeedStr) || 20));
+
+  const [rcxPickAlignmentMode, setRcxPickAlignmentMode] = useState<"corner" | "center">(
+    () => (localStorage.getItem("rcxPickAlignmentMode") as "corner" | "center" || "corner")
+  );
   const [selectedYamahaStepIndex, setSelectedYamahaStepIndex] = useState<number>(0);
 
   // --- HOST TCP CLIENT CONFIGURATION AND STATUS STATES ---
@@ -294,6 +328,16 @@ export default function App() {
       } catch (err) {
         console.error("Failed to fetch Hikrobot status", err);
       }
+
+      try {
+        const res = await fetch("/api/yamaha/status");
+        const data = await res.json();
+        if (active) {
+          setIsYamahaConnected(!!data.isConnected);
+        }
+      } catch (err) {
+        console.error("Failed to fetch Yamaha status", err);
+      }
     };
 
     fetchStatus();
@@ -304,11 +348,83 @@ export default function App() {
     };
   }, []);
 
+  const sendYamahaCmd = async (cmd: string, forceCtrlC = false) => {
+    try {
+      await fetch("/api/yamaha/command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cmd, forceCtrlC })
+      });
+    } catch (err) {
+      console.error("Failed to send Yamaha command", err);
+    }
+  };
+
+  const handleInterrupt = () => {
+    sendYamahaCmd("", true);
+  };
+
+  const jogToPickOriginXYR = () => {
+    if (window.confirm(`Safe Jog Pick Origin: coordinate to XYR horizontally at safe top height (Z=20.0)?\nTarget: X ${rcxPickOriginX.toFixed(1)} Y ${rcxPickOriginY.toFixed(1)} Z 20.0 R ${rcxPickOriginR.toFixed(1)}`)) {
+      sendYamahaCmd(`@MOVE[1] P, ${rcxPickOriginX.toFixed(3)} ${rcxPickOriginY.toFixed(3)} 20.000 ${rcxPickOriginR.toFixed(3)} 0.000 0.000, S=20`);
+    }
+  };
+
+  const jogToPickOriginFull = () => {
+    if (window.confirm(`Carefully Plunge Z: descend vertically down to Pick Origin floor Z height?\nTarget: X ${rcxPickOriginX.toFixed(1)} Y ${rcxPickOriginY.toFixed(1)} Z ${rcxPickOriginZ.toFixed(1)} R ${rcxPickOriginR.toFixed(1)}`)) {
+      sendYamahaCmd(`@MOVE[1] P, ${rcxPickOriginX.toFixed(3)} ${rcxPickOriginY.toFixed(3)} ${rcxPickOriginZ.toFixed(3)} ${rcxPickOriginR.toFixed(3)} 0.000 0.000, S=12`);
+    }
+  };
+
+  const jogToPalletOriginXYR = () => {
+    if (window.confirm(`Safe Jog Pallet Origin: coordinate to XYR horizontally at safe top height (Z=20.0)?\nTarget: X ${rcxPalletOriginX.toFixed(1)} Y ${rcxPalletOriginY.toFixed(1)} Z 20.0 R ${rcxPalletOriginR.toFixed(1)}`)) {
+      sendYamahaCmd(`@MOVE[1] P, ${rcxPalletOriginX.toFixed(3)} ${rcxPalletOriginY.toFixed(3)} 20.000 ${rcxPalletOriginR.toFixed(3)} 0.000 0.000, S=20`);
+    }
+  };
+
+  const jogToPalletOriginFull = () => {
+    if (window.confirm(`Carefully Plunge Z: descend vertically down to Pallet Base Origin floor Z height?\nTarget: X ${rcxPalletOriginX.toFixed(1)} Y ${rcxPalletOriginY.toFixed(1)} Z ${rcxPalletOriginZ.toFixed(1)} R ${rcxPalletOriginR.toFixed(1)}`)) {
+      sendYamahaCmd(`@MOVE[1] P, ${rcxPalletOriginX.toFixed(3)} ${rcxPalletOriginY.toFixed(3)} ${rcxPalletOriginZ.toFixed(3)} ${rcxPalletOriginR.toFixed(3)} 0.000 0.000, S=12`);
+    }
+  };
+
+  const handleSaveConfig = () => {
+    localStorage.setItem("rcxPickOriginXStr", rcxPickOriginXStr);
+    localStorage.setItem("rcxPickOriginYStr", rcxPickOriginYStr);
+    localStorage.setItem("rcxPickOriginZStr", rcxPickOriginZStr);
+    localStorage.setItem("rcxPickOriginRStr", rcxPickOriginRStr);
+    localStorage.setItem("rcxPalletOriginXStr", rcxPalletOriginXStr);
+    localStorage.setItem("rcxPalletOriginYStr", rcxPalletOriginYStr);
+    localStorage.setItem("rcxPalletOriginZStr", rcxPalletOriginZStr);
+    localStorage.setItem("rcxPalletOriginRStr", rcxPalletOriginRStr);
+    localStorage.setItem("rcxToolOffsetZStr", rcxToolOffsetZStr);
+    localStorage.setItem("rcxToolOffsetXStr", rcxToolOffsetXStr);
+    localStorage.setItem("rcxToolOffsetYStr", rcxToolOffsetYStr);
+    localStorage.setItem("rcxEndEffectorLStr", rcxEndEffectorLStr);
+    localStorage.setItem("rcxEndEffectorWStr", rcxEndEffectorWStr);
+    localStorage.setItem("rcxEndEffectorHStr", rcxEndEffectorHStr);
+    localStorage.setItem("rcxScaleDownStr", rcxScaleDownStr);
+    localStorage.setItem("rcxPickAlignmentMode", rcxPickAlignmentMode);
+
+    localStorage.setItem("rcxPickSignX", rcxPickSignX.toString());
+    localStorage.setItem("rcxPickSignY", rcxPickSignY.toString());
+    localStorage.setItem("rcxPickSignZ", rcxPickSignZ.toString());
+    localStorage.setItem("rcxPlaceSignX", rcxPlaceSignX.toString());
+    localStorage.setItem("rcxPlaceSignY", rcxPlaceSignY.toString());
+    localStorage.setItem("rcxPlaceSignZ", rcxPlaceSignZ.toString());
+    localStorage.setItem("rcxSafeZTravelEnabled", rcxSafeZTravelEnabled.toString());
+    localStorage.setItem("rcxTravelSpeedStr", rcxTravelSpeedStr);
+    localStorage.setItem("rcxPlungeSpeedStr", rcxPlungeSpeedStr);
+
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
   const toggleScannerServer = async () => {
     setScannerLoading(true);
     setTriggerStatusMsg("");
     try {
-      const port = parseInt(scannerPortInput) || 8080;
+      const port = parseInt(scannerPortInput) || 7920;
       const res = await fetch("/api/hikrobot/toggle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -462,14 +578,14 @@ export default function App() {
       const pickY_offset = rcxPickAlignmentMode === "corner" ? bx.w / 2 : 0;
       const pickZ_offset = bx.h;
       
-      const pX = Number((rcxPickOriginX + pickX_offset * rcxScaleDown).toFixed(2));
-      const pY = Number((rcxPickOriginY - pickY_offset * rcxScaleDown).toFixed(2));
-      const pZ = Number((rcxPickOriginZ - pickZ_offset * rcxScaleDown - rcxToolOffsetZ).toFixed(2));
+      const pX = Number((rcxPickOriginX + (rcxPickSignX * pickX_offset * rcxScaleDown)).toFixed(2));
+      const pY = Number((rcxPickOriginY + (rcxPickSignY * pickY_offset * rcxScaleDown)).toFixed(2));
+      const pZ = Number((rcxPickOriginZ + (rcxPickSignZ * pickZ_offset * rcxScaleDown) - rcxToolOffsetZ).toFixed(2));
       const pR = Number(rcxPickOriginR.toFixed(2));
 
-      const plX = Number((rcxPalletOriginX - (bx.x + bx.l / 2) * rcxScaleDown).toFixed(2));
-      const plY = Number((rcxPalletOriginY - (bx.y + bx.w / 2) * rcxScaleDown).toFixed(2));
-      const plZ = Number((rcxPalletOriginZ - (bx.z + bx.h) * rcxScaleDown - rcxToolOffsetZ).toFixed(2));
+      const plX = Number((rcxPalletOriginX + (rcxPlaceSignX * (bx.x + bx.l / 2) * rcxScaleDown)).toFixed(2));
+      const plY = Number((rcxPalletOriginY + (rcxPlaceSignY * (bx.y + bx.w / 2) * rcxScaleDown)).toFixed(2));
+      const plZ = Number((rcxPalletOriginZ + (rcxPlaceSignZ * (bx.z + bx.h) * rcxScaleDown) - rcxToolOffsetZ).toFixed(2));
       const plR = Number((rcxPalletOriginR + rot).toFixed(2));
 
       return {
@@ -526,15 +642,23 @@ export default function App() {
         return [
           `' --- STEP ${cmd.sequenceOrder}: PLACE ${cmd.name} ---`,
           `*STEP_${cmd.sequenceOrder}:`,
-          `  ' 1. Fast travel to Pickup Safe Approach clearance (Z + 150mm)`,
+          ...(rcxSafeZTravelEnabled ? [
+            `  ' Safe Z transit before motion`,
+            `  P99 = WHR`,
+            `  P99(3) = 20.0`,
+            `  SPEED ${rcxTravelSpeed}`,
+            `  MOVE P, P99`,
+            `  `
+          ] : []),
+          `  ' 1. Fast travel to Pickup Safe Approach clearance (Z = 20.0)`,
           `  P1 = ${pPick}`,
           `  P2 = ${pPick}`,
-          `  P2(3) = P1(3) + 150.0`,
-          `  SPEED 80`,
+          `  P2(3) = 20.0`,
+          `  SPEED ${rcxTravelSpeed}`,
           `  MOVE P, P2`,
           `  `,
           `  ' 2. Creep descend to grab top center of carton`,
-          `  SPEED 20`,
+          `  SPEED ${rcxPlungeSpeed}`,
           `  DRIVE P, P1`,
           `  DELAY 150`,
           `  `,
@@ -543,18 +667,18 @@ export default function App() {
           `  DELAY 300`,
           `  `,
           `  ' 4. Safe lift away from conveyor`,
-          `  SPEED 60`,
+          `  SPEED ${rcxTravelSpeed}`,
           `  MOVE P, P2`,
           `  `,
-          `  ' 5. Transit high travel to Placement Safe Approach clearance (Z + 150mm)`,
+          `  ' 5. Transit high travel to Placement Safe Approach clearance (Z = 20.0)`,
           `  P3 = ${pPlace}`,
           `  P4 = ${pPlace}`,
-          `  P4(3) = P3(3) + 150.0`,
-          `  SPEED 90`,
+          `  P4(3) = 20.0`,
+          `  SPEED ${rcxTravelSpeed}`,
           `  MOVE P, P4`,
           `  `,
           `  ' 6. Lower carefully onto pallet stack coordinate`,
-          `  SPEED 30`,
+          `  SPEED ${rcxPlungeSpeed}`,
           `  DRIVE P, P3`,
           `  DELAY 100`,
           `  `,
@@ -563,7 +687,7 @@ export default function App() {
           `  DELAY 150`,
           `  `,
           `  ' 8. Ascend cleanly from task area`,
-          `  SPEED 75`,
+          `  SPEED ${rcxTravelSpeed}`,
           `  MOVE P, P4`,
           `  `
         ];
@@ -642,15 +766,15 @@ export default function App() {
       const pickY_offset = rcxPickAlignmentMode === "corner" ? bx.w / 2 : 0;
       const pickZ_offset = bx.h;
       
-      const pickCo_X = Number((rcxPickOriginX + pickX_offset * rcxScaleDown).toFixed(2));
-      const pickCo_Y = Number((rcxPickOriginY - pickY_offset * rcxScaleDown).toFixed(2));
-      const pickCo_Z = Number((rcxPickOriginZ - pickZ_offset * rcxScaleDown - rcxToolOffsetZ).toFixed(2));
+      const pickCo_X = Number((rcxPickOriginX + (rcxPickSignX * pickX_offset * rcxScaleDown)).toFixed(2));
+      const pickCo_Y = Number((rcxPickOriginY + (rcxPickSignY * pickY_offset * rcxScaleDown)).toFixed(2));
+      const pickCo_Z = Number((rcxPickOriginZ + (rcxPickSignZ * pickZ_offset * rcxScaleDown) - rcxToolOffsetZ).toFixed(2));
       const pickCo_R = Number(rcxPickOriginR.toFixed(2));
 
       // Place calculation
-      const placeCo_X = Number((rcxPalletOriginX - (bx.x + bx.l / 2) * rcxScaleDown).toFixed(2));
-      const placeCo_Y = Number((rcxPalletOriginY - (bx.y + bx.w / 2) * rcxScaleDown).toFixed(2));
-      const placeCo_Z = Number((rcxPalletOriginZ - (bx.z + bx.h) * rcxScaleDown - rcxToolOffsetZ).toFixed(2));
+      const placeCo_X = Number((rcxPalletOriginX + (rcxPlaceSignX * (bx.x + bx.l / 2) * rcxScaleDown)).toFixed(2));
+      const placeCo_Y = Number((rcxPalletOriginY + (rcxPlaceSignY * (bx.y + bx.w / 2) * rcxScaleDown)).toFixed(2));
+      const placeCo_Z = Number((rcxPalletOriginZ + (rcxPlaceSignZ * (bx.z + bx.h) * rcxScaleDown) - rcxToolOffsetZ).toFixed(2));
       const placeCo_R = Number((rcxPalletOriginR + rot).toFixed(2));
 
       return {
@@ -717,15 +841,23 @@ export default function App() {
         return [
           `' --- STEP ${cmd.sequenceOrder}: PLACE ${cmd.name} ---`,
           `*STEP_${cmd.sequenceOrder}:`,
-          `  ' 1. Fast travel to Pickup Safe Approach clearance (Z + 150mm)`,
+          ...(rcxSafeZTravelEnabled ? [
+            `  ' Safe Z transit before motion`,
+            `  P99 = WHR`,
+            `  P99(3) = 20.0`,
+            `  SPEED ${rcxTravelSpeed}`,
+            `  MOVE P, P99`,
+            `  `
+          ] : []),
+          `  ' 1. Fast travel to Pickup Safe Approach clearance (Z = 20.0)`,
           `  P1 = ${pPick}`,
           `  P2 = ${pPick}`,
-          `  P2(3) = P1(3) + 150.0`,
-          `  SPEED 80`,
+          `  P2(3) = 20.0`,
+          `  SPEED ${rcxTravelSpeed}`,
           `  MOVE P, P2`,
           `  `,
           `  ' 2. Creep descend to grab top center of carton`,
-          `  SPEED 20`,
+          `  SPEED ${rcxPlungeSpeed}`,
           `  DRIVE P, P1`,
           `  DELAY 150`,
           `  `,
@@ -734,18 +866,18 @@ export default function App() {
           `  DELAY 300`,
           `  `,
           `  ' 4. Safe lift away from conveyor`,
-          `  SPEED 60`,
+          `  SPEED ${rcxTravelSpeed}`,
           `  MOVE P, P2`,
           `  `,
-          `  ' 5. Transit high travel to Placement Safe Approach clearance (Z + 150mm)`,
+          `  ' 5. Transit high travel to Placement Safe Approach clearance (Z = 20.0)`,
           `  P3 = ${pPlace}`,
           `  P4 = ${pPlace}`,
-          `  P4(3) = P3(3) + 150.0`,
-          `  SPEED 90`,
+          `  P4(3) = 20.0`,
+          `  SPEED ${rcxTravelSpeed}`,
           `  MOVE P, P4`,
           `  `,
           `  ' 6. Lower carefully onto pallet stack coordinate`,
-          `  SPEED 30`,
+          `  SPEED ${rcxPlungeSpeed}`,
           `  DRIVE P, P3`,
           `  DELAY 100`,
           `  `,
@@ -754,7 +886,7 @@ export default function App() {
           `  DELAY 150`,
           `  `,
           `  ' 8. Ascend cleanly from task area`,
-          `  SPEED 75`,
+          `  SPEED ${rcxTravelSpeed}`,
           `  MOVE P, P4`,
           `  `
         ];
@@ -1648,14 +1780,115 @@ export default function App() {
       ctx.fillText(` CG (${cg.x.toFixed(0)},${cg.y.toFixed(0)},${cg.z.toFixed(0)})`, cgProj.x + 11, cgProj.y + 3);
     };
 
+    // Draw simulated End Effector and compute collision warnings
+    const drawEndEffectorSim = () => {
+      if (!simulationResult || simulationResult.placedBoxes.length === 0) return;
+      const bx = simulationResult.placedBoxes[selectedYamahaStepIndex];
+      if (!bx) return;
+
+      const eeL = rcxEndEffectorL;
+      const eeW = rcxEndEffectorW;
+      const eeH = rcxEndEffectorH;
+
+      // End Effector bounding box coords
+      const ee_minX = (bx.x + bx.l / 2) - eeL / 2;
+      const ee_maxX = (bx.x + bx.l / 2) + eeL / 2;
+      const ee_minY = (bx.y + bx.w / 2) - eeW / 2;
+      const ee_maxY = (bx.y + bx.w / 2) + eeW / 2;
+      const ee_minZ = bx.z + bx.h;
+      const ee_maxZ = bx.z + bx.h + eeH;
+
+      // Check collision with already placed boxes (sequence index < selectedYamahaStepIndex)
+      let collisionDetected = false;
+
+      for (let i = 0; i < selectedYamahaStepIndex; i++) {
+        const otherBx = simulationResult.placedBoxes[i];
+        const b_minX = otherBx.x;
+        const b_maxX = otherBx.x + otherBx.l;
+        const b_minY = otherBx.y;
+        const b_maxY = otherBx.y + otherBx.w;
+        const b_minZ = otherBx.z;
+        const b_maxZ = otherBx.z + otherBx.h;
+
+        const xOverlap = ee_minX < b_maxX && ee_maxX > b_minX;
+        const yOverlap = ee_minY < b_maxY && ee_maxY > b_minY;
+        const zOverlap = ee_minZ < b_maxZ && ee_maxZ > b_minZ;
+
+        if (xOverlap && yOverlap && zOverlap) {
+          collisionDetected = true;
+          break;
+        }
+      }
+
+      // Draw End Effector Cuboid
+      const ec000 = project(ee_minX, ee_minY, ee_minZ);
+      const ec100 = project(ee_maxX, ee_minY, ee_minZ);
+      const ec110 = project(ee_maxX, ee_maxY, ee_minZ);
+      const ec010 = project(ee_minX, ee_maxY, ee_minZ);
+
+      const ec001 = project(ee_minX, ee_minY, ee_maxZ);
+      const ec101 = project(ee_maxX, ee_minY, ee_maxZ);
+      const ec111 = project(ee_maxX, ee_maxY, ee_maxZ);
+      const ec011 = project(ee_minX, ee_maxY, ee_maxZ);
+
+      const fillCol = collisionDetected ? "rgba(239, 68, 68, 0.45)" : "rgba(6, 182, 212, 0.3)";
+      const strokeCol = collisionDetected ? "#ef4444" : "#06b6d4";
+
+      const drawFace = (pts: { x: number; y: number }[], fCol: string, sCol: string) => {
+        ctx.fillStyle = fCol;
+        ctx.strokeStyle = sCol;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let j = 1; j < pts.length; j++) ctx.lineTo(pts[j].x, pts[j].y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      };
+
+      // Draw faces in depth order
+      drawFace([ec100, ec110, ec111, ec101], fillCol, strokeCol); // Front-Left
+      drawFace([ec010, ec110, ec111, ec011], fillCol, strokeCol); // Front-Right
+      drawFace([ec001, ec101, ec111, ec011], fillCol, strokeCol); // Top Face
+
+      // Draw mechanical shaft up
+      ctx.strokeStyle = strokeCol;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      const topCenterProj = project(bx.x + bx.l / 2, bx.y + bx.w / 2, ee_maxZ);
+      const topExtendProj = project(bx.x + bx.l / 2, bx.y + bx.w / 2, ee_maxZ + 60);
+      ctx.moveTo(topCenterProj.x, topCenterProj.y);
+      ctx.lineTo(topExtendProj.x, topExtendProj.y);
+      ctx.stroke();
+
+      // Label banner
+      const bannerX = (ec001.x + ec111.x) / 2;
+      const bannerY = Math.min(ec001.y, ec111.y) - 16;
+
+      ctx.fillStyle = collisionDetected ? "rgba(220, 38, 38, 0.9)" : "rgba(15, 23, 42, 0.8)";
+      ctx.beginPath();
+      ctx.rect(bannerX - 55, bannerY - 8, 110, 16);
+      ctx.fill();
+
+      ctx.strokeStyle = strokeCol;
+      ctx.lineWidth = 1.0;
+      ctx.strokeRect(bannerX - 55, bannerY - 8, 110, 16);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 7.5px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(collisionDetected ? "⚠️ COLLISION DETECTED" : "TCP EFF SIM OK", bannerX, bannerY + 3);
+    };
+
     // Draw coordinate, base, boundaries and cargo in strict z-buffer layout order
     drawAxes();
     drawPalletStructure();
     drawBoundingCage();
     drawBoxes();
     drawCGTarget();
+    drawEndEffectorSim();
 
-  }, [pallet, cameraZoom, simulationResult, selectedLayerIndex, colorScheme, showBoxStabilityDetails, animationElapsed]);
+  }, [pallet, cameraZoom, simulationResult, selectedLayerIndex, colorScheme, showBoxStabilityDetails, animationElapsed, selectedYamahaStepIndex, rcxEndEffectorL, rcxEndEffectorW, rcxEndEffectorH]);
 
   // Handle repaint triggers
   useEffect(() => {
@@ -1807,6 +2040,17 @@ export default function App() {
             >
               <Cpu className="w-3.5 h-3.5" />
               <span>Robot Setup</span>
+            </button>
+            <button
+              onClick={() => setActivePage("operator-hmi")}
+              className={`px-3.5 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all outline-none duration-150 ${
+                activePage === "operator-hmi"
+                  ? "bg-[#3A3A3C] text-white font-bold"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <Terminal className="w-3.5 h-3.5" />
+              <span>Touch HMI</span>
             </button>
           </div>
 
@@ -2185,11 +2429,42 @@ export default function App() {
                   
                   rcxToolOffsetZStr={rcxToolOffsetZStr}
                   setRcxToolOffsetZStr={setRcxToolOffsetZStr}
+                  rcxToolOffsetXStr={rcxToolOffsetXStr}
+                  setRcxToolOffsetXStr={setRcxToolOffsetXStr}
+                  rcxToolOffsetYStr={rcxToolOffsetYStr}
+                  setRcxToolOffsetYStr={setRcxToolOffsetYStr}
+                  rcxEndEffectorLStr={rcxEndEffectorLStr}
+                  setRcxEndEffectorLStr={setRcxEndEffectorLStr}
+                  rcxEndEffectorWStr={rcxEndEffectorWStr}
+                  setRcxEndEffectorWStr={setRcxEndEffectorWStr}
+                  rcxEndEffectorHStr={rcxEndEffectorHStr}
+                  setRcxEndEffectorHStr={setRcxEndEffectorHStr}
                   rcxPickAlignmentMode={rcxPickAlignmentMode}
                   setRcxPickAlignmentMode={setRcxPickAlignmentMode}
 
                   rcxScaleDownStr={rcxScaleDownStr}
                   setRcxScaleDownStr={setRcxScaleDownStr}
+
+                  rcxPickSignX={rcxPickSignX} setRcxPickSignX={setRcxPickSignX}
+                  rcxPickSignY={rcxPickSignY} setRcxPickSignY={setRcxPickSignY}
+                  rcxPickSignZ={rcxPickSignZ} setRcxPickSignZ={setRcxPickSignZ}
+                  rcxPlaceSignX={rcxPlaceSignX} setRcxPlaceSignX={setRcxPlaceSignX}
+                  rcxPlaceSignY={rcxPlaceSignY} setRcxPlaceSignY={setRcxPlaceSignY}
+                  rcxPlaceSignZ={rcxPlaceSignZ} setRcxPlaceSignZ={setRcxPlaceSignZ}
+                  rcxSafeZTravelEnabled={rcxSafeZTravelEnabled}
+                  setRcxSafeZTravelEnabled={setRcxSafeZTravelEnabled}
+                  rcxTravelSpeedStr={rcxTravelSpeedStr}
+                  setRcxTravelSpeedStr={setRcxTravelSpeedStr}
+                  rcxPlungeSpeedStr={rcxPlungeSpeedStr}
+                  setRcxPlungeSpeedStr={setRcxPlungeSpeedStr}
+
+                  isYamahaConnected={isYamahaConnected}
+                  onJogToPickOriginXYR={jogToPickOriginXYR}
+                  onJogToPickOriginFull={jogToPickOriginFull}
+                  onJogToPalletOriginXYR={jogToPalletOriginXYR}
+                  onJogToPalletOriginFull={jogToPalletOriginFull}
+                  onSaveConfig={handleSaveConfig}
+                  saveSuccess={saveSuccess}
                 />
               </div>
 
@@ -2213,12 +2488,39 @@ export default function App() {
                     rcxPalletOriginZ={rcxPalletOriginZ}
                     rcxPalletOriginR={rcxPalletOriginR}
                     rcxToolOffsetZ={rcxToolOffsetZ}
+                    rcxToolOffsetX={rcxToolOffsetX}
+                    rcxToolOffsetY={rcxToolOffsetY}
                     rcxPickAlignmentMode={rcxPickAlignmentMode}
                     rcxScaleDown={rcxScaleDown}
+                    isYamahaConnected={isYamahaConnected}
+                    setIsYamahaConnected={setIsYamahaConnected}
+                    rcxPickSignX={rcxPickSignX}
+                    rcxPickSignY={rcxPickSignY}
+                    rcxPickSignZ={rcxPickSignZ}
+                    rcxPlaceSignX={rcxPlaceSignX}
+                    rcxPlaceSignY={rcxPlaceSignY}
+                    rcxPlaceSignZ={rcxPlaceSignZ}
+                    rcxSafeZTravelEnabled={rcxSafeZTravelEnabled}
                   />
               </div>
             </div>
           </div>
+        </main>
+      ) : activePage === "operator-hmi" ? (
+        <main className="flex-1 w-full animate-fade-in">
+          <TouchHMI 
+            isYamahaConnected={isYamahaConnected} 
+            onSendCmd={sendYamahaCmd} 
+            onInterrupt={handleInterrupt} 
+            onTriggerScan={triggerCameraScan}
+            onSimulateScan={() => simulateCameraScan()}
+            onJogToPickOriginXYR={jogToPickOriginXYR}
+            onJogToPickOriginFull={jogToPickOriginFull}
+            onJogToPlaceOriginXYR={jogToPalletOriginXYR}
+            onJogToPlaceOriginFull={jogToPalletOriginFull}
+            activePalletIndex={activePalletIndex}
+            simulationResults={simulationResults}
+          />
         </main>
       ) : (
         <main className="flex-1 p-6 grid grid-cols-1 xl:grid-cols-12 gap-6 items-start overflow-x-hidden">
